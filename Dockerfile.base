@@ -1,0 +1,304 @@
+
+FROM ubuntu:26.04
+
+LABEL maintainer="kevin@riscv.dev"
+ENV DEBIAN_FRONTEND=noninteractive
+# ==========================================
+# 1. Global Configuration & Arguments
+# ==========================================
+ARG UID=1000
+ARG GID=1000
+ARG USERNAME="kevin"
+ENV HOME=/home/$USERNAME
+ARG WGET_ARGS="-q --show-progress --progress=bar:force:noscroll"
+
+
+RUN <<'EOF'
+    #!/bin/bash
+    set -euo pipefail
+
+    echo ">>> [Bootstrap] Installing core fetch utilities..."
+    apt-get update && apt-get install --no-install-recommends -y \
+        sudo zsh \
+        ca-certificates \
+        curl \
+        tar \
+        unzip \
+        xz-utils \
+        bzip2 \
+        locales \
+        gzip \
+        wget
+    # Clean up stale packages
+	apt-get autoremove --purge -y
+	# Clean up local repository
+	apt-get clean -y
+	rm -rf /var/lib/apt/lists/*
+EOF
+
+# Initialise system locale
+RUN locale-gen en_US.UTF-8
+ENV LANG=en_US.UTF-8
+ENV LANGUAGE=en_US:en
+ENV LC_ALL=en_US.UTF-8
+
+# ==========================================
+# 2. ARM & RISC-V Cross-Toolchains (Heavy, Stable)
+# ==========================================
+RUN <<'EOF'
+    set -euo pipefail
+    TARGET_DIR="/opt/toolchains/arm-none-eabi"
+    mkdir -p "${TARGET_DIR}"
+    echo ">>> Downloading arm-none-eabi..."
+    wget ${WGET_ARGS} -O- "https://developer.arm.com/-/media/Files/downloads/gnu/13.2.rel1/binrel/arm-gnu-toolchain-13.2.rel1-x86_64-arm-none-eabi.tar.xz" \
+        | tar -xJ --strip-components=1 -C "${TARGET_DIR}"
+EOF
+
+RUN <<'EOF'
+    set -euo pipefail
+    TARGET_DIR="/opt/toolchains/aarch64-none-elf"
+    mkdir -p "${TARGET_DIR}"
+    echo ">>> Downloading aarch64-none-elf..."
+    wget ${WGET_ARGS} -O- "https://developer.arm.com/-/media/Files/downloads/gnu/13.2.rel1/binrel/arm-gnu-toolchain-13.2.rel1-x86_64-aarch64-none-elf.tar.xz" \
+        | tar -xJ --strip-components=1 -C "${TARGET_DIR}"
+EOF
+
+RUN <<'EOF'
+    set -euo pipefail
+    TARGET_DIR="/opt/toolchains/aarch64-none-linux-gnu"
+    mkdir -p "${TARGET_DIR}"
+    echo ">>> Downloading aarch64-none-linux-gnu..."
+    wget ${WGET_ARGS} -O- "https://gitlab.arm.com/api/v4/projects/tooling%2Fgnu-toolchains-for-arm/packages/generic/gnu-toolchain/15.3.rel1/arm-gnu-toolchain-15.3.rel1-x86_64-aarch64-none-linux-gnu.tar.xz" \
+        | tar -xJ --strip-components=1 -C "${TARGET_DIR}"
+EOF
+
+RUN <<'EOF'
+    set -euo pipefail
+    TARGET_DIR="/opt/toolchains/aarch64_be-none-linux-gnu"
+    mkdir -p "${TARGET_DIR}"
+    echo ">>> Downloading aarch64_be-none-linux-gnu..."
+    wget ${WGET_ARGS} -O- "https://gitlab.arm.com/api/v4/projects/tooling%2Fgnu-toolchains-for-arm/packages/generic/gnu-toolchain/15.3.rel1/arm-gnu-toolchain-15.3.rel1-x86_64-aarch64_be-none-linux-gnu.tar.xz" \
+        | tar -xJ --strip-components=1 -C "${TARGET_DIR}"
+EOF
+
+RUN <<'EOF'
+    set -euo pipefail
+    TARGET_DIR="/opt/toolchains/arm-none-linux-gnueabihf"
+    mkdir -p "${TARGET_DIR}"
+    echo ">>> Downloading arm-none-linux-gnueabihf..."
+    wget ${WGET_ARGS} -O- "https://gitlab.arm.com/api/v4/projects/tooling%2Fgnu-toolchains-for-arm/packages/generic/gnu-toolchain/15.3.rel1/arm-gnu-toolchain-15.3.rel1-x86_64-arm-none-linux-gnueabihf.tar.xz" \
+        | tar -xJ --strip-components=1 -C "${TARGET_DIR}"
+EOF
+
+RUN <<'EOF'
+    set -euo pipefail
+    TARGET_DIR="/opt/toolchains/riscv32-unknown-linux-gnu"
+    mkdir -p "${TARGET_DIR}"
+    echo ">>> Downloading riscv32-unknown-linux-gnu..."
+    wget ${WGET_ARGS} -O- "https://github.com/riscv-collab/riscv-gnu-toolchain/releases/download/2026.08.27/riscv32-glibc-ubuntu-24.04-gcc.tar.xz" \
+        | tar -xJ --strip-components=1 -C "${TARGET_DIR}"
+EOF
+
+RUN <<'EOF'
+    set -euo pipefail
+    TARGET_DIR="/opt/toolchains/riscv64-unknown-linux-gnu"
+    mkdir -p "${TARGET_DIR}"
+    echo ">>> Downloading riscv64-unknown-linux-gnu..."
+    wget ${WGET_ARGS} -O- "https://github.com/riscv-collab/riscv-gnu-toolchain/releases/download/2026.08.27/riscv64-glibc-ubuntu-24.04-gcc.tar.xz" \
+        | tar -xJ --strip-components=1 -C "${TARGET_DIR}"
+EOF
+
+RUN <<'EOF'
+    set -euo pipefail
+    TARGET_DIR="/opt/toolchains/riscv32-unknown-elf"
+    mkdir -p "${TARGET_DIR}"
+    echo ">>> Downloading riscv32-unknown-elf..."
+    wget ${WGET_ARGS} -O- "https://github.com/riscv-collab/riscv-gnu-toolchain/releases/download/2026.08.27/riscv32-elf-ubuntu-24.04-gcc.tar.xz" \
+        | tar -xJ --strip-components=1 -C "${TARGET_DIR}"
+EOF
+
+RUN <<'EOF'
+    set -euo pipefail
+    TARGET_DIR="/opt/toolchains/riscv64-unknown-elf"
+    mkdir -p "${TARGET_DIR}"
+    echo ">>> Downloading riscv64-unknown-elf..."
+    wget ${WGET_ARGS} -O- "https://github.com/riscv-collab/riscv-gnu-toolchain/releases/download/2026.08.27/riscv64-elf-ubuntu-24.04-gcc.tar.xz" \
+        | tar -xJ --strip-components=1 -C "${TARGET_DIR}"
+EOF
+
+
+
+# ==========================================
+# 5. FVP Installation Engine (Heavy, Stable)
+# ==========================================
+ARG FVP_ARCH_VER="11.32_19"
+ARG FVP_CS320_VER="11.27_25"
+ARG FVP_CS315_310_300_VER="11.27_42"
+ARG FVP_CS1000_VER="11.23_25"
+ARG FVP_CS1000_A320_VER="11.31.cs1000_a320_2"
+ARG FVP_CS700_500_VER="11.22_35"
+
+RUN <<'EOF'
+    #!/bin/bash
+    set -euo pipefail
+    FVP_DIR="/opt/fvp"
+    mkdir -p "${FVP_DIR}"
+
+    install_fvp() {
+        local url=$1
+        local dest=$2
+        local tmp=$(mktemp -d)
+        
+        wget ${WGET_ARGS} -O- "$url" | tar -xz -C "$tmp"
+        
+        local script=$(find "$tmp" -maxdepth 1 -name "*.sh" | head -n 1)
+        if [ -n "$script" ]; then
+            "$script" --i-agree-to-the-contained-eula --no-interactive -d "$dest"
+        else
+            mkdir -p "$dest"
+            cp -a "$tmp/"* "$dest/"
+        fi
+        rm -rf "$tmp"
+    }
+
+    FM_BASE=$(echo "${FVP_ARCH_VER}" | cut -d'_' -f1)
+
+    echo ">>> [FVP] Installing Arm Architecture & Corstone FVPs..."
+    install_fvp "https://developer.arm.com/-/cdn-downloads/permalink/FVPs-Architecture/FM-${FM_BASE}/Foundation_Platform_${FVP_ARCH_VER}_Linux_x86.tar.gz" "${FVP_DIR}/Foundation_Platform"
+    install_fvp "https://developer.arm.com/-/cdn-downloads/permalink/FVPs-Architecture/FM-${FM_BASE}/FVP_Base_AEMv8R_${FVP_ARCH_VER}_Linux_x86.tar.gz" "${FVP_DIR}/Base_AEMv8R"
+    install_fvp "https://developer.arm.com/-/cdn-downloads/permalink/FVPs-Architecture/FM-${FM_BASE}/FVP_Base_RevC_AEMvA_${FVP_ARCH_VER}_Linux_x86.tar.gz" "${FVP_DIR}/Base_RevC_AEMvA"
+    install_fvp "https://developer.arm.com/-/cdn-downloads/permalink/FVPs-Architecture/FM-${FM_BASE}/FVP_Base_RevC_AEMvA_GICv5_${FVP_ARCH_VER}_Linux_x86.tar.gz" "${FVP_DIR}/Base_RevC_AEMvA_GICv5"
+    install_fvp "https://developer.arm.com/-/cdn-downloads/permalink/FVPs-Architecture/FM-${FM_BASE}/VAL_VAL_AEMvA_${FVP_ARCH_VER}_Linux_x86.tar.gz" "${FVP_DIR}/VAL_VAL_AEMvA"
+    install_fvp "https://developer.arm.com/-/cdn-downloads/permalink/FVPs-Corstone-IoT/Corstone-320/FVP_Corstone_SSE-320_${FVP_CS320_VER}_Linux64.tgz" "${FVP_DIR}/Corstone-320"
+    install_fvp "https://developer.arm.com/-/cdn-downloads/permalink/FVPs-Corstone-IoT/Corstone-315/FVP_Corstone_SSE-315_${FVP_CS315_310_300_VER}_Linux64.tgz" "${FVP_DIR}/Corstone-315"
+    install_fvp "https://developer.arm.com/-/cdn-downloads/permalink/FVPs-Corstone-IoT/Corstone-310/FVP_Corstone_SSE-310_${FVP_CS315_310_300_VER}_Linux64.tgz" "${FVP_DIR}/Corstone-310"
+    install_fvp "https://developer.arm.com/-/cdn-downloads/permalink/FVPs-Corstone-IoT/Corstone-300/FVP_Corstone_SSE-300_${FVP_CS315_310_300_VER}_Linux64.tgz" "${FVP_DIR}/Corstone-300"
+    install_fvp "https://developer.arm.com/-/cdn-downloads/permalink/FVPs-Corstone-IoT/Corstone-1000/FVP_Corstone_1000_${FVP_CS1000_VER}_Linux64.tgz" "${FVP_DIR}/Corstone-1000"
+    install_fvp "https://developer.arm.com/-/cdn-downloads/permalink/FVPs-Corstone-IoT/Corstone-1000-with-Cortex-A320/FVP_Corstone_1000-A320_${FVP_CS1000_A320_VER}_Linux_x86.tar.gz" "${FVP_DIR}/Corstone-1000-A320"
+    install_fvp "https://developer.arm.com/-/cdn-downloads/permalink/FVPs-Corstone-IoT/Corstone-700/FVP_Corstone_700_${FVP_CS700_500_VER}_Linux64.tgz" "${FVP_DIR}/Corstone-700"
+    install_fvp "https://developer.arm.com/-/cdn-downloads/permalink/FVPs-Corstone-IoT/Corstone-500/FVP_Corstone_500_${FVP_CS700_500_VER}_Linux64.tgz" "${FVP_DIR}/Corstone-500"
+
+    mkdir -p "${FVP_DIR}/bin"
+    find "${FVP_DIR}" -mindepth 2 -type f -executable \( -name "FVP_*" -o -name "Foundation_Platform*" \) -exec ln -s {} "${FVP_DIR}/bin/" \;
+EOF
+
+# ==========================================
+# 2. Bootstrap (DO NOT MODIFY - Cache Anchor)
+# Installs strictly what is needed to fetch archives.
+# ==========================================
+RUN <<'EOF'
+    #!/bin/bash
+    set -euo pipefail
+    echo ">>> [Bootstrap] Installing core fetch utilities..."
+    apt-get update && apt-get install --no-install-recommends -y \
+        git \
+        libatomic1 \
+        software-properties-common \
+        gpg-agent \
+        libatomic1 \
+        libglib2.0-0 \
+        libexpat1 \
+        libmpfr6 \
+        libmpc3 \
+        libncurses6 libtinfo6
+
+    lib_dir="/usr/lib/x86_64-linux-gnu"
+    # Create backwards-compatible symlinks
+    if [ ! -e "${lib_dir}/libncurses.so.5" ]; then
+        ln -s "${lib_dir}/libncurses.so.6" "${lib_dir}/libncurses.so.5"
+    fi
+    if [ ! -e "${lib_dir}/libncursesw.so.5" ]; then
+        ln -s "${lib_dir}/libncursesw.so.6" "${lib_dir}/libncursesw.so.5"
+    fi
+    if [ ! -e "${lib_dir}/libtinfo.so.5" ]; then
+        ln -s "${lib_dir}/libtinfo.so.6" "${lib_dir}/libtinfo.so.5"
+    fi
+
+    add-apt-repository -y ppa:deadsnakes/ppa
+    apt-get update
+    apt-get install -y --no-install-recommends libpython3.12
+	apt-get install -y python3.9-dev
+    
+    # Fix for Buildroot uutils install bug
+    update-alternatives --install /usr/bin/install install /usr/bin/gnuinstall 100
+
+    # Clean up stale packages
+	apt-get autoremove --purge -y
+	# Clean up local repository
+	apt-get clean -y
+	rm -rf /var/lib/apt/lists/*
+EOF
+
+WORKDIR /${HOME}
+ENV ZSH="/${HOME}/.oh-my-zsh"
+RUN <<'EOF'
+    #!/bin/bash
+    set -euo pipefail
+
+    if id "ubuntu" &>/dev/null; then
+    echo ">>> Removing default 'ubuntu' user to free up UID 1000"
+    userdel -r ubuntu || true
+    echo " userdel returned with code $?"
+    fi
+    #userdel -r ubuntu || true
+    echo ">>> Creating user '$USERNAME' with UID $UID and GID $GID"
+    groupadd -g ${GID} -o ${USERNAME}
+    useradd -u ${UID} -m -g ${USERNAME} -G sudo,plugdev -s /usr/bin/zsh ${USERNAME}
+
+    echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${USERNAME}
+    chmod 0440 /etc/sudoers.d/${USERNAME}
+
+
+    # Install Oh-My-Zsh
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+
+    # Define Custom Directory using the variable
+    ZSH_CUSTOM="$ZSH/custom"
+
+    # Install Plugins
+    git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM}/plugins/zsh-autosuggestions
+    git clone https://github.com/zsh-users/zsh-syntax-highlighting ${ZSH_CUSTOM}/plugins/zsh-syntax-highlighting
+    git clone https://github.com/zsh-users/zsh-history-substring-search ${ZSH_CUSTOM}/plugins/zsh-history-substring-search
+
+    # Install Themes
+    git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM}/themes/powerlevel10k
+    git clone --depth=1 https://github.com/sindresorhus/pure.git ${ZSH_CUSTOM}/themes/pure
+    #ls -l /tmp/.oh-my-zsh
+    chown -R ${USERNAME}:${GID} "/home/${USERNAME}/.oh-my-zsh"
+
+EOF
+
+# ==========================================
+# 8. Final Path Export
+# ==========================================
+ENV PATH="\
+/opt/qemu/bin:\
+/opt/fvp/bin:\
+/opt/toolchains/arm-none-eabi/bin:\
+/opt/toolchains/aarch64-none-elf/bin:\
+/opt/toolchains/aarch64-none-linux-gnu/bin:\
+/opt/toolchains/aarch64_be-none-linux-gnu/bin:\
+/opt/toolchains/arm-none-linux-gnueabihf/bin:\
+/opt/toolchains/riscv32-unknown-linux-gnu/bin:\
+/opt/toolchains/riscv64-unknown-linux-gnu/bin:\
+/opt/toolchains/riscv32-unknown-elf/bin:\
+/opt/toolchains/riscv64-unknown-elf/bin:\
+${PATH}"
+
+
+COPY --chown=${USERNAME}:${GID} ./.zshrc ${HOME}/.zshrc
+COPY --chown=${USERNAME}:${GID} ./entrypoint.sh /home/entrypoint.sh
+RUN chmod +x /home/entrypoint.sh
+
+
+# Set final environment variables and volume
+USER $USERNAME
+
+
+ENV MyENV=devcontainer
+
+VOLUME ["/workdir"]
+
+ENTRYPOINT ["/home/entrypoint.sh"]
+#EXPOSE 5900
+CMD ["zsh"]

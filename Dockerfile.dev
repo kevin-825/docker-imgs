@@ -1,0 +1,47 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE:-kflyn825/tool-dep:latest}
+USER root
+ARG UID=1000
+ARG GID=1000
+ARG USERNAME="kevin"
+ENV HOME=/home/$USERNAME
+ARG PYTHON_VENV_PATH=/opt/python/venv
+ARG WGET_ARGS="-q --show-progress --progress=bar:force:noscroll"
+
+
+RUN <<'EOF'
+    #!/bin/bash
+    set -euo pipefail
+    echo ">>> [Dev Tools] Installing volatile packages..."
+    apt-get update && apt-get install --no-install-recommends -y \
+        vim nano openssh-client rsync \
+        fzf fonts-powerline fonts-noto-cjk \
+        \
+        jq cpio file lz4 zstd unzip \
+        genimage dosfstools mtools fdisk gdisk parted \
+		openbox \
+		python3-xdg \
+		libpython3-dev \
+		x11vnc \
+		xvfb \
+		xterm \
+		xz-utils \
+		usbutils
+
+         
+    # Install yq for YAML processing
+    ARCH=$(dpkg --print-architecture)
+    wget ${WGET_ARGS} "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_${ARCH}" -O /usr/bin/yq
+    chmod +x /usr/bin/yq
+
+    rm -rf /var/lib/apt/lists/*
+EOF
+
+
+USER $USERNAME
+
+VOLUME ["/workdir"]
+
+ENTRYPOINT ["/home/entrypoint.sh"]
+
+CMD ["zsh"]
