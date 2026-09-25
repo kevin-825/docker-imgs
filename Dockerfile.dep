@@ -270,6 +270,9 @@ RUN apt-get update && \
         libbrlapi0.8 \
     && rm -rf /var/lib/apt/lists/*
 
+# add venv and ovmf to PATH
+ENV PATH="${PATH}:${PYTHON_VENV_PATH}/bin:${OVMF_FD_PATH}"
+
 USER $USERNAME
 
 CMD ["zsh"]
