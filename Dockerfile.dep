@@ -5,8 +5,6 @@ ARG GID=1000
 ARG USERNAME="kevin"
 ENV HOME=/home/$USERNAME
 
-ARG QEMU_VER="11.1.1"
-
 USER root
 
 RUN <<'EOF'
@@ -45,6 +43,8 @@ RUN <<'EOF'
     #apt-get autoremove --purge -y build-essential ninja-build flex bison
     rm -rf /var/lib/apt/lists/*
 EOF
+
+ARG QEMU_VER="11.1.2"
 
 RUN <<'EOF'
     #!/bin/bash
